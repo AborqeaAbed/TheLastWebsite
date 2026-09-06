@@ -1,0 +1,46 @@
+@keyframes spotPulse {
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(200, 180, 138, 0.45); }
+  70% { transform: scale(1.05); box-shadow: 0 0 0 16px rgba(200, 180, 138, 0); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(200, 180, 138, 0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes gridDrift {
+  from { background-position: 0 0, 0 0; }
+  to { background-position: 80px 40px, 40px 80px; }
+}
+
+@keyframes livePulse {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.25); }
+}
+
+@keyframes ripple {
+  from { transform: scale(0.4); opacity: 0.7; }
+  to { transform: scale(2.4); opacity: 0; }
+}
+
+@keyframes number-scale-in {
+  from { opacity: 0; transform: scale(0.85); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.animate-spot-pulse { animation: spotPulse 1.5s ease-in-out infinite; }
+.animate-fade-in { animation: fadeIn var(--transition-normal) ease-out both; }
+.animate-live { animation: livePulse 1.8s ease-in-out infinite; }
+.animate-ripple { animation: ripple 700ms ease-out forwards; }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-spot-pulse,
+  .animate-fade-in,
+  .animate-live,
+  .animate-ripple,
+  .hero-stats-number,
+  .map-grid {
+    animation: none !important;
+  }
+}

@@ -1,0 +1,64 @@
+:root {
+  --color-accent-gold: #D4AF37;
+  --color-accent-gold-light: #E8D5B5;
+  --color-accent-gold-dark: #A89A5C;
+  --color-accent: #D4AF37;
+  --color-claimed-gold: #D4AF37;
+  --color-available: #D4AF37;
+  --color-success: #6BBE7F;
+  --color-error: #E8A8A8;
+  --color-info: #85ACCC;
+  --color-focus: #D4AF37;
+
+  --color-background: #0F1117;
+  --color-bg-primary: #0F1117;
+  --color-bg-secondary: #1A1F2E;
+  --color-surface: #252D3D;
+  --color-surface-primary: #252D3D;
+  --color-surface-secondary: #1E2332;
+  --color-surface-tertiary: #141820;
+
+  --color-text-primary: #E8E8E8;
+  --color-text-secondary: #A0A8B8;
+  --color-text-tertiary: #7A8297;
+  --color-text-muted: #5F6776;
+
+  --color-border: rgba(212, 175, 55, 0.1);
+  --color-border-light: rgba(212, 175, 55, 0.05);
+  --color-border-strong: rgba(212, 175, 55, 0.2);
+  --color-divider: rgba(255, 255, 255, 0.05);
+
+  --gradient-gold: linear-gradient(135deg, #D4AF37 0%, #A89A5C 100%);
+  --gradient-gold-light: linear-gradient(135deg, #E8D5B5 0%, #B5A870 100%);
+  --gradient-subtle: linear-gradient(135deg, rgba(212, 175, 55, 0.1) 0%, transparent 100%);
+  --gradient-depth: linear-gradient(180deg, rgba(37, 45, 61, 0.5) 0%, rgba(25, 32, 45, 0.5) 100%);
+
+  --radius-none: 0;
+  --radius-subtle: 6px;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 24px;
+  --radius-full: 9999px;
+
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 40px;
+
+  --transition-fast: 150ms;
+  --transition-normal: 250ms;
+  --transition-slow: 400ms;
+
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --transition-fast: 1ms;
+    --transition-normal: 1ms;
+    --transition-slow: 1ms;
+  }
+}

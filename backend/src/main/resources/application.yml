@@ -1,0 +1,55 @@
+server:
+  port: 8080
+
+spring:
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/thelastwebsite}
+    username: ${DB_USERNAME:${USER:postgres}}
+    password: ${DB_PASSWORD:}
+    driver-class-name: org.postgresql.Driver
+  
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+    open-in-view: false
+
+  mail:
+    host: ${EMAIL_HOST:smtp.gmail.com}
+    port: ${EMAIL_PORT:587}
+    username: ${EMAIL_USERNAME:}
+    password: ${EMAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+stripe:
+  secret-key: ${STRIPE_SECRET_KEY:}
+  publishable-key: ${STRIPE_PUBLISHABLE_KEY:}
+  webhook-secret: ${STRIPE_WEBHOOK_SECRET:}
+
+email:
+  from: ${EMAIL_FROM:hello@thelastwebsite.com}
+  magic-link-base-url: ${MAGIC_LINK_BASE_URL:http://localhost:3000}
+
+admin:
+  token: ${ADMIN_TOKEN:dev-admin-token}
+
+payment:
+  success-url: ${PAYMENT_SUCCESS_URL:http://localhost:3000/verify}
+  cancel-url: ${PAYMENT_CANCEL_URL:http://localhost:3000/?canceled=1}
+
+logging:
+  level:
+    com.thelastwebsite: DEBUG

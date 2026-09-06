@@ -1,0 +1,21 @@
+@layer components {
+  .btn-primary {
+    @apply bg-white text-black px-6 py-3 rounded-lg font-semibold text-base transition-all duration-[var(--transition-fast)] hover:scale-105 hover:shadow-lg;
+  }
+  
+  .btn-secondary {
+    @apply border border-white text-white px-6 py-3 rounded-lg font-semibold text-base transition-all duration-[var(--transition-fast)] hover:scale-105 hover:bg-white hover:text-black;
+  }
+  
+  .glass-ui {
+    @apply bg-[rgba(17,19,24,0.72)] backdrop-filter backdrop-blur-sm border border-[rgba(255,255,255,0.08)];
+  }
+  
+  .map-container {
+    @apply w-full h-screen fixed top-0 left-0 z-0;
+  }
+  
+  .spot-number {
+    @apply font-mono text-sm tracking-wider;
+  }
+}

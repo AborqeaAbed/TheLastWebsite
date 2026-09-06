@@ -1,0 +1,24 @@
+@import '../styles/variables.css';
+@import '../styles/typography.css';
+@import '../styles/buttons.css';
+@import '../styles/animations.css';
+@import '../styles/map.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import '../styles/buttons.css';
+
+html, body { overflow: hidden; }
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
