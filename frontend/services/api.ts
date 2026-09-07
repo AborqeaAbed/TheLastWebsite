@@ -35,8 +35,16 @@ export const api = {
   random: () => json<Spot>('/api/spots/random'),
   latest: () => json<Spot[]>('/api/spots/latest'),
   search: (q: string) => json<Spot[]>(`/api/spots/search?q=${encodeURIComponent(q)}`),
-  checkout: (spotNumber: number, body: { name: string; message: string; email: string }) =>
-    json<{ sessionId: string; url: string; mocked: boolean }>(`/api/payments/create-checkout/${spotNumber}`, {
+  reserve: (spotNumber: number) =>
+    json<{ spotNumber: number; status: string; reservedUntil: string }>(`/api/spots/${spotNumber}/reserve`, {
+      method: 'POST',
+    }),
+  release: (spotNumber: number) =>
+    json<{ spotNumber: number; status: string }>(`/api/spots/${spotNumber}/release`, {
+      method: 'POST',
+    }),
+  checkout: (spotNumber: number, body: { name: string; message: string; email: string; provider: 'STRIPE' | 'PAYPAL' }) =>
+    json<{ sessionId: string; url: string; mocked: boolean; provider: string }>(`/api/payments/create-checkout/${spotNumber}`, {
       method: 'POST',
       body: JSON.stringify(body),
     }),

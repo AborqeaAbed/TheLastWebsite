@@ -117,6 +117,13 @@ public class SpotService {
         stats.setPendingVerification(spotRepository.countPendingVerification());
         stats.setReserved(spotRepository.countReserved());
         stats.setTotal(Constants.TOTAL_SPOTS);
+        long claimed = stats.getClaimed();
+        long launchRemaining = Math.max(0, Constants.LAUNCH_SUBSCRIBER_LIMIT - claimed);
+        stats.setLaunchSpotsRemaining(launchRemaining);
+        stats.setCurrentPriceCents(launchRemaining > 0 ? Constants.LAUNCH_PRICE_CENTS : Constants.STANDARD_PRICE_CENTS);
+        stats.setNextPriceCents(Constants.STANDARD_PRICE_CENTS);
+        stats.setLaunchRevenueCents(Math.min(claimed, Constants.LAUNCH_SUBSCRIBER_LIMIT) * (long) Constants.LAUNCH_PRICE_CENTS);
+        stats.setLaunchRevenueGoalCents((long) Constants.LAUNCH_SUBSCRIBER_LIMIT * Constants.LAUNCH_PRICE_CENTS);
         return stats;
     }
 
@@ -137,6 +144,33 @@ public class SpotService {
         Spot saved = spotRepository.save(spot);
         auditService.record(null, saved, Constants.ACTION_SPOT_RESERVED, null);
         return saved;
+    }
+
+    @Transactional
+    public Spot releaseReservation(Integer spotNumber) {
+        Spot spot = spotRepository.findBySpotNumberForUpdate(spotNumber)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Spot not found"));
+        if (Constants.STATUS_CLAIMED.equals(spot.getStatus())) {
+            return spot;
+        }
+        if (Constants.STATUS_RESERVED.equals(spot.getStatus())
+                || Constants.STATUS_PENDING_VERIFICATION.equals(spot.getStatus())) {
+            spot.setStatus(Constants.STATUS_AVAILABLE);
+            spot.setReservedUntil(null);
+            spot.setUser(null);
+            spot.setName(null);
+            spot.setMessage(null);
+            spot.setUpdatedAt(LocalDateTime.now());
+            return spotRepository.save(spot);
+        }
+        return spot;
+    }
+
+    public boolean isActiveReservation(Spot spot) {
+        if (spot == null || !Constants.STATUS_RESERVED.equals(spot.getStatus())) {
+            return false;
+        }
+        return spot.getReservedUntil() != null && spot.getReservedUntil().isAfter(LocalDateTime.now());
     }
 
     @Transactional

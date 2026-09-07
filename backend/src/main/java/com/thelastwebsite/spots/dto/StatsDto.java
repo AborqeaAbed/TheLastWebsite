@@ -46,4 +46,50 @@ public class StatsDto {
     public void setTotal(long total) {
         this.total = total;
     }
+
+    private long launchSpotsRemaining;
+    private int currentPriceCents;
+    private int nextPriceCents;
+    private long launchRevenueCents;
+    private long launchRevenueGoalCents;
+
+    public long getLaunchSpotsRemaining() {
+        return launchSpotsRemaining;
+    }
+
+    public void setLaunchSpotsRemaining(long launchSpotsRemaining) {
+        this.launchSpotsRemaining = launchSpotsRemaining;
+    }
+
+    public int getCurrentPriceCents() {
+        return currentPriceCents;
+    }
+
+    public void setCurrentPriceCents(int currentPriceCents) {
+        this.currentPriceCents = currentPriceCents;
+    }
+
+    public int getNextPriceCents() {
+        return nextPriceCents;
+    }
+
+    public void setNextPriceCents(int nextPriceCents) {
+        this.nextPriceCents = nextPriceCents;
+    }
+
+    public long getLaunchRevenueCents() {
+        return launchRevenueCents;
+    }
+
+    public void setLaunchRevenueCents(long launchRevenueCents) {
+        this.launchRevenueCents = launchRevenueCents;
+    }
+
+    public long getLaunchRevenueGoalCents() {
+        return launchRevenueGoalCents;
+    }
+
+    public void setLaunchRevenueGoalCents(long launchRevenueGoalCents) {
+        this.launchRevenueGoalCents = launchRevenueGoalCents;
+    }
 }

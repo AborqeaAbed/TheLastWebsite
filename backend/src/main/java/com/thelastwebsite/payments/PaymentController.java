@@ -28,7 +28,8 @@ public class PaymentController {
         return ResponseEntity.ok(Map.of(
                 "sessionId", result.sessionId(),
                 "url", result.url(),
-                "mocked", result.mocked()
+                "mocked", result.mocked(),
+                "provider", result.provider()
         ));
     }
 

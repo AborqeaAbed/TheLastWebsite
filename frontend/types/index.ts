@@ -25,4 +25,9 @@ export interface Stats {
   pendingVerification: number;
   reserved: number;
   total: number;
+  launchSpotsRemaining: number;
+  currentPriceCents: number;
+  nextPriceCents: number;
+  launchRevenueCents: number;
+  launchRevenueGoalCents: number;
 }

@@ -147,8 +147,135 @@
   box-shadow: 0 2px 8px rgba(212, 175, 55, 0.15);
 }
 
-.stats-chip .spot-number {
+.stats-chip-count {
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
   color: #D4AF37;
+}
+
+.stats-chip-divider {
+  width: 1px;
+  height: 16px;
+  background: rgba(212, 175, 55, 0.25);
+  flex-shrink: 0;
+}
+
+.stats-chip-current-price {
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: #D4AF37;
+}
+
+.stats-chip-meta {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #A0A8B8;
+}
+
+.pricing-tiers {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(212, 175, 55, 0.12);
+}
+
+.pricing-tier {
+  background: rgba(37, 45, 61, 0.35);
+  border: 1px solid rgba(212, 175, 55, 0.08);
+  border-radius: 14px;
+  padding: 18px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  transition: border-color 200ms ease, background 200ms ease;
+}
+
+.pricing-tier.active {
+  background: linear-gradient(135deg, rgba(212, 175, 55, 0.1) 0%, rgba(37, 45, 61, 0.5) 100%);
+  border-color: rgba(212, 175, 55, 0.28);
+  box-shadow: 0 0 0 1px rgba(212, 175, 55, 0.06), 0 6px 20px rgba(212, 175, 55, 0.07);
+}
+
+.pricing-tier-label {
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #5A6275;
+}
+
+.pricing-tier.active .pricing-tier-label {
+  color: #D4AF37;
+}
+
+.pricing-tier-price {
+  font-size: 2.1rem;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: #3A4255;
+  margin: 3px 0 1px;
+}
+
+.pricing-tier.active .pricing-tier-price {
+  color: #D4AF37;
+  text-shadow: 0 2px 12px rgba(212, 175, 55, 0.2);
+}
+
+.pricing-tier-bar {
+  width: 100%;
+  height: 3px;
+  background: rgba(212, 175, 55, 0.06);
+  border-radius: 3px;
+  overflow: hidden;
+  margin: 5px 0 3px;
+}
+
+.pricing-tier-fill {
+  height: 100%;
+  background: rgba(90, 98, 117, 0.4);
+  border-radius: 3px;
+  transition: width 1.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.pricing-tier.active .pricing-tier-fill {
+  background: linear-gradient(90deg, #D4AF37 0%, #B8943A 100%);
+  box-shadow: 0 0 8px rgba(212, 175, 55, 0.35);
+}
+
+.pricing-tier-count {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: #5A6275;
+}
+
+.pricing-tier.active .pricing-tier-count {
+  color: #E8E8E8;
+}
+
+.pricing-tier-note {
+  font-size: 0.65rem;
+  letter-spacing: 0.05em;
+  color: #3A4255;
+}
+
+.pricing-tier.active .pricing-tier-note {
+  color: #A0A8B8;
+}
+
+.pricing-tier-note.sold-out {
+  color: #6BBE7F;
+  font-weight: 700;
+  letter-spacing: 0.1em;
 }
 
 .stats-live {
@@ -525,6 +652,37 @@
   background: linear-gradient(135deg, rgba(212, 175, 55, 0.12) 0%, rgba(37, 45, 61, 0.6) 100%);
   transform: translateX(4px);
   box-shadow: 0 4px 12px rgba(212, 175, 55, 0.15);
+}
+
+.payment-modal {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.payment-timer {
+  margin: 0;
+  font-family: var(--font-mono);
+  letter-spacing: 0.08em;
+  color: #D4AF37;
+}
+
+.payment-amount {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #E8E8E8;
+}
+
+.payment-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.payment-actions .btn-primary,
+.payment-actions .btn-secondary {
+  width: 100%;
 }
 
 .progress-track {

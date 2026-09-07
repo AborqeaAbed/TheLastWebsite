@@ -113,44 +113,12 @@
   color: #A0A8B8;
 }
 
-.hero-stats {
-  width: 100%;
-  min-height: 196px;
-  box-sizing: border-box;
-  background: linear-gradient(135deg, rgba(212, 175, 55, 0.08) 0%, rgba(37, 45, 61, 0.4) 100%);
-  border: 1px solid rgba(212, 175, 55, 0.15);
-  border-left: 4px solid #D4AF37;
-  border-radius: 14px;
-  padding: 36px 32px;
-  box-shadow: 0 12px 40px rgba(212, 175, 55, 0.1);
-}
 
-.hero-stats-number {
-  font-family: var(--font-mono);
-  font-size: clamp(1.05rem, 2.6vw, 1.4rem);
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  color: #D4AF37;
-  line-height: 1.1;
-  margin: 0;
-  text-shadow: 0 2px 12px rgba(212, 175, 55, 0.3);
-  animation: number-scale-in 800ms cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.hero-stats-label {
-  font-size: 0.8rem;
+.hero-headline {
+  font-size: clamp(1.6rem, 5vw, 2.4rem);
   font-weight: 700;
-  letter-spacing: 0.12em;
-  color: #A0A8B8;
-  text-transform: uppercase;
-  margin: 12px 0 0;
-}
-
-.hero-stats-remaining {
-  font-size: 1rem;
-  font-weight: 500;
-  color: #A0A8B8;
-  margin: 12px 0 0;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
 }
 
 .modal-header {

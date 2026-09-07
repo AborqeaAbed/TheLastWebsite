@@ -59,24 +59,29 @@ public class PaymentService {
 
     @Transactional
     public CheckoutResult createCheckout(Integer spotNumber, ClaimRequest request) {
-        Spot spot = spotService.reserveSpot(spotNumber);
+        String provider = normalizeProvider(request.getProvider());
+        Spot spot = spotRepository.findBySpotNumberForUpdate(spotNumber)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Spot not found"));
+        if (!spotService.isActiveReservation(spot)) {
+            throw new ApiException(HttpStatus.CONFLICT, "This spot is no longer reserved. Claim it again.");
+        }
+
         User user = authService.findOrCreate(request.getEmail());
-        user.setEmailVerified(true);
-        user.setUpdatedAt(LocalDateTime.now());
         spot.setName(request.getName().trim());
         spot.setMessage(request.getMessage().trim());
         spot.setUser(user);
-        spot.setStatus(Constants.STATUS_CLAIMED);
-        spot.setClaimedAt(LocalDateTime.now());
-        spot.setReservedUntil(null);
         spot.setUpdatedAt(LocalDateTime.now());
         spotRepository.save(spot);
+        int priceCents = currentPriceCents();
 
-        String checkoutId;
+        String checkoutId = provider + "_" + spot.getId();
         if (mockPayments) {
-            checkoutId = "mock_" + spot.getId();
-            applySuccessfulPayment(checkoutId, user, spot);
-            return new CheckoutResult(checkoutId, "/spot/" + spotNumber + "?claimed=1", true);
+            applySuccessfulPayment(checkoutId, user, spot, priceCents);
+            return new CheckoutResult(checkoutId, "/spot/" + spotNumber + "?claimed=1", true, provider);
+        }
+
+        if (Constants.PAYMENT_PROVIDER_PAYPAL.equals(provider)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "PayPal checkout is not configured yet.");
         }
 
         com.stripe.Stripe.apiKey = stripeSecretKey;
@@ -91,7 +96,7 @@ public class PaymentService {
                             .setQuantity(1L)
                             .setPriceData(SessionCreateParams.LineItem.PriceData.builder()
                                     .setCurrency(Constants.CURRENCY)
-                                    .setUnitAmount((long) Constants.SPOT_PRICE_CENTS)
+                                    .setUnitAmount((long) priceCents)
                                     .setProductData(SessionCreateParams.LineItem.PriceData.ProductData.builder()
                                             .setName("Spot #" + spotNumber)
                                             .build())
@@ -100,7 +105,7 @@ public class PaymentService {
                     .build();
             Session session = Session.create(params);
             persistPendingPayment(session.getId(), user, spot);
-            return new CheckoutResult(session.getId(), session.getUrl(), false);
+            return new CheckoutResult(session.getId(), session.getUrl(), false, provider);
         } catch (StripeException ex) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Your payment couldn't be completed.");
         }
@@ -128,13 +133,21 @@ public class PaymentService {
             return;
         }
         Integer spotNumber = Integer.valueOf(session.getMetadata().get("spotNumber"));
-        Spot spot = spotRepository.findBySpotNumber(spotNumber).orElseThrow();
+        Spot spot = spotRepository.findBySpotNumberForUpdate(spotNumber).orElseThrow();
+        if (!spotService.isActiveReservation(spot) && !Constants.STATUS_CLAIMED.equals(spot.getStatus())) {
+            throw new ApiException(HttpStatus.CONFLICT, "This spot is no longer reserved.");
+        }
         User user = spot.getUser();
-        applySuccessfulPayment(session.getId(), user, spot);
+        applySuccessfulPayment(session.getId(), user, spot, currentPriceCents());
     }
 
     @Transactional
     public void applySuccessfulPayment(String stripePaymentId, User user, Spot spot) {
+        applySuccessfulPayment(stripePaymentId, user, spot, currentPriceCents());
+    }
+
+    @Transactional
+    public void applySuccessfulPayment(String stripePaymentId, User user, Spot spot, int amountCents) {
         Optional<Payment> existing = paymentRepository.findByStripePaymentId(stripePaymentId);
         if (existing.isPresent() && Constants.PAYMENT_SUCCEEDED.equals(existing.get().getStatus())) {
             return;
@@ -143,7 +156,7 @@ public class PaymentService {
         payment.setSpot(spot);
         payment.setUser(user);
         payment.setStripePaymentId(stripePaymentId);
-        payment.setAmount(Constants.SPOT_PRICE_CENTS);
+        payment.setAmount(amountCents);
         payment.setCurrency("USD");
         payment.setStatus(Constants.PAYMENT_SUCCEEDED);
         payment.setUpdatedAt(LocalDateTime.now());
@@ -168,11 +181,29 @@ public class PaymentService {
         payment.setSpot(spot);
         payment.setUser(user);
         payment.setStripePaymentId(stripeId);
-        payment.setAmount(Constants.SPOT_PRICE_CENTS);
+        payment.setAmount(currentPriceCents());
         payment.setCurrency("USD");
         payment.setStatus(Constants.PAYMENT_PENDING);
         paymentRepository.save(payment);
     }
 
-    public record CheckoutResult(String sessionId, String url, boolean mocked) {}
+    private int currentPriceCents() {
+        long claimed = spotRepository.countClaimedSpots();
+        return claimed < Constants.LAUNCH_SUBSCRIBER_LIMIT
+                ? Constants.LAUNCH_PRICE_CENTS
+                : Constants.STANDARD_PRICE_CENTS;
+    }
+
+    private String normalizeProvider(String provider) {
+        if (provider == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Choose Stripe or PayPal.");
+        }
+        String normalized = provider.trim().toUpperCase();
+        if (Constants.PAYMENT_PROVIDER_STRIPE.equals(normalized) || Constants.PAYMENT_PROVIDER_PAYPAL.equals(normalized)) {
+            return normalized;
+        }
+        throw new ApiException(HttpStatus.BAD_REQUEST, "Choose Stripe or PayPal.");
+    }
+
+    public record CheckoutResult(String sessionId, String url, boolean mocked, String provider) {}
 }

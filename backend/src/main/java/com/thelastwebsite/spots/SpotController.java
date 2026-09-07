@@ -73,4 +73,13 @@ public class SpotController {
                 "reservedUntil", reserved.getReservedUntil()
         ));
     }
+
+    @PostMapping("/{spotNumber}/release")
+    public ResponseEntity<Map<String, Object>> releaseSpot(@PathVariable Integer spotNumber) {
+        Spot released = spotService.releaseReservation(spotNumber);
+        return ResponseEntity.ok(Map.of(
+                "spotNumber", released.getSpotNumber(),
+                "status", released.getStatus()
+        ));
+    }
 }

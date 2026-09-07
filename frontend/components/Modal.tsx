@@ -79,6 +79,78 @@ interface ClaimForm {
   loading?: boolean;
 }
 
+export function PaymentModal({
+  spotNumber,
+  reservedUntil,
+  values,
+  priceCents,
+  launchSpotsRemaining,
+  error,
+  loading,
+  onPay,
+  onClose,
+}: {
+  spotNumber: number;
+  reservedUntil: string;
+  values: { name: string; message: string; email: string };
+  priceCents: number;
+  launchSpotsRemaining: number;
+  error?: string;
+  loading?: boolean;
+  onPay: (provider: 'STRIPE' | 'PAYPAL') => void;
+  onClose: () => void;
+}) {
+  const [remaining, setRemaining] = useState(() => secondsUntil(reservedUntil));
+
+  useEffect(() => {
+    const tick = () => {
+      const next = secondsUntil(reservedUntil);
+      setRemaining(next);
+      if (next <= 0) onClose();
+    };
+    tick();
+    const id = window.setInterval(tick, 1000);
+    return () => window.clearInterval(id);
+  }, [reservedUntil, onClose]);
+
+  const minutes = Math.floor(Math.max(0, remaining) / 60);
+  const seconds = Math.max(0, remaining) % 60;
+
+  return (
+    <Modal title={`Pay for Spot #${spotNumber.toLocaleString()}`} onClose={onClose}>
+      <div className="payment-modal">
+        <p className="text-[var(--color-text-secondary)]">This spot is held for you. Complete payment before the hold expires.</p>
+        <p className="payment-timer" role="timer" aria-live="polite" aria-atomic="true">
+          Hold expires in {minutes}:{String(seconds).padStart(2, '0')}
+        </p>
+        <div className="claim-preview">
+          <p className="text-sm text-[var(--color-text-secondary)]">Your message</p>
+          <p className="mt-2 preview-message">“{values.message}”</p>
+          <p className="text-[var(--color-text-secondary)]">— {values.name}</p>
+        </div>
+        <p className="payment-amount">${(priceCents / 100).toFixed(2)} USD</p>
+        <p className="text-sm text-[var(--color-text-secondary)]">
+          {launchSpotsRemaining > 0
+            ? `Launch price: first 1,000 spots are $1. ${launchSpotsRemaining.toLocaleString()} left, then $5.`
+            : 'Launch price ended. This spot is $5.'}
+        </p>
+        {error ? <p className="error-text" role="alert">⚠ {error}</p> : null}
+        <div className="payment-actions">
+          <button className="btn-primary" type="button" disabled={loading || remaining <= 0} onClick={() => onPay('STRIPE')}>
+            {loading ? 'OPENING STRIPE...' : 'PAY WITH STRIPE'}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+function secondsUntil(iso: string) {
+  const end = new Date(iso).getTime();
+  if (Number.isNaN(end)) return 0;
+  return Math.max(0, Math.ceil((end - Date.now()) / 1000));
+}
+
 export function ClaimForm({ onSubmit, error, loading }: ClaimForm) {
   const [name, setName] = useState('');
   const [message, setMessage] = useState('');
@@ -121,7 +193,7 @@ export function ClaimForm({ onSubmit, error, loading }: ClaimForm) {
       </p>
       {error ? <p className="error-text" role="alert">⚠ {error}</p> : null}
       <button className="btn-primary" type="submit" disabled={loading}>
-        {loading ? 'CLAIMING SPOT...' : 'CLAIM MY SPOT — $1'}
+        {loading ? 'HOLDING SPOT...' : 'CLAIM'}
       </button>
     </form>
   );

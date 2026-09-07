@@ -35,11 +35,11 @@ export function useMapEngine() {
       setViewport(data);
       if (data.spots) {
         spotsRef.current = data.spots;
-        claimedRef.current = new Map(
-          data.spots
-            .filter((s) => s.status === 'CLAIMED' || s.status === 'PENDING_VERIFICATION')
-            .map((s) => [s.spotNumber, s])
-        );
+        data.spots.forEach((s) => {
+          if (s.status === 'CLAIMED' || s.status === 'PENDING_VERIFICATION') {
+            claimedRef.current.set(s.spotNumber, s);
+          }
+        });
       }
     } catch {
       setViewport({ mode: 'spots', spots: spotsRef.current });
@@ -114,10 +114,27 @@ export function useMapEngine() {
         if (s < 64) return { number: Math.max(9, s * 0.2), message: s * 0.18, author: Math.max(6, s * 0.12), numberOpacity: 1 };
         return { number: Math.min(16, s * 0.18), message: s * 0.2, author: Math.min(14, s * 0.12), numberOpacity: 1 };
       };
-      const clipText = (text: string, fontPx: number, maxW: number) => {
-        if (!text) return '';
-        const maxChars = Math.max(1, Math.floor(maxW / Math.max(3, fontPx * 0.55)));
-        return text.length <= maxChars ? text : `${text.slice(0, Math.max(1, maxChars - 1))}…`;
+      const serifFace = '"Iowan Old Style", "Palatino Linotype", Palatino, "Times New Roman", serif';
+      const wrapLines = (text: string, maxW: number): string[] => {
+        const words = text.split(' ');
+        const lines: string[] = [];
+        let line = '';
+        for (const word of words) {
+          const candidate = line ? `${line} ${word}` : word;
+          if (ctx.measureText(candidate).width > maxW && line) {
+            lines.push(line);
+            line = word;
+          } else {
+            line = candidate;
+          }
+        }
+        if (line) lines.push(line);
+        return lines;
+      };
+      const wrapAndRender = (text: string, fontPx: number, maxW: number, fontDecl: string) => {
+        ctx.font = fontDecl;
+        const lines = wrapLines(text, maxW);
+        return { lines, lineH: fontPx * 1.3 };
       };
       const spotPath = (x: number, y: number, s: number, corner: number) => {
         ctx.beginPath();
@@ -195,29 +212,56 @@ export function useMapEngine() {
           ctx.clip();
           if (owned) {
             ctx.shadowColor = 'rgba(0,0,0,0.55)';
-            ctx.shadowOffsetY = 1;
-            ctx.shadowBlur = 2;
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 0;
+            ctx.shadowBlur = 0;
             ctx.fillStyle = `rgba(244,232,204,${0.96 * type.numberOpacity})`;
-            ctx.font = `600 ${type.number}px "Iowan Old Style", "Palatino Linotype", Palatino, "Times New Roman", serif`;
+            ctx.font = `600 ${type.number}px ${serifFace}`;
             ctx.textAlign = 'left';
             ctx.textBaseline = 'top';
             ctx.fillText(`#${n.toLocaleString()}`, ox + pad, oy + pad);
-            if (type.message > 0) {
-              ctx.shadowColor = 'rgba(0,0,0,0.35)';
-              ctx.shadowBlur = 1;
+            if (type.message > 0 && owned.message) {
+              const numZoneH = type.number + pad;
+              const authZoneH = type.author > 0 ? type.author + pad : 0;
+              const msgTop = oy + numZoneH;
+              const msgBottom = oy + drawSize - authZoneH;
+              const msgCY = (msgTop + msgBottom) / 2;
+              const msgAvailH = Math.max(6, msgBottom - msgTop);
+              const msgAvailW = drawSize - pad * 2;
+              let msgFontPx = Math.min(type.message, Math.max(6, drawSize * 0.45 / Math.sqrt(owned.message.length)));
+              ctx.font = `italic ${msgFontPx}px ${serifFace}`;
+              let lines = wrapLines(owned.message, msgAvailW);
+              let lineH = msgFontPx * 1.3;
+              if (lines.length * lineH > msgAvailH) {
+                msgFontPx = Math.max(5, msgFontPx * (msgAvailH / (lines.length * lineH)));
+                ctx.font = `italic ${msgFontPx}px ${serifFace}`;
+                lines = wrapLines(owned.message, msgAvailW);
+                lineH = msgFontPx * 1.3;
+              }
+              lines = lines.slice(0, Math.max(1, Math.floor(msgAvailH / lineH)));
+              ctx.shadowColor = 'rgba(0,0,0,0.4)';
+              ctx.shadowOffsetX = 0;
+              ctx.shadowOffsetY = 0;
+              ctx.shadowBlur = 2;
               ctx.fillStyle = 'rgba(232,213,181,0.94)';
-              ctx.font = `italic 500 ${type.message}px "Iowan Old Style", "Palatino Linotype", Palatino, "Times New Roman", serif`;
               ctx.textAlign = 'center';
               ctx.textBaseline = 'middle';
-              ctx.fillText(clipText(owned.message || '', type.message, drawSize - pad * 2), cx, cy, drawSize - pad * 2);
+              const blockH = lines.length * lineH;
+              const startY = msgCY - blockH / 2 + lineH / 2;
+              lines.forEach((l, i) => ctx.fillText(l, cx, startY + i * lineH));
             }
-            if (type.author > 0) {
+            if (type.author > 0 && owned.name) {
+              const authText = `— ${owned.name}`;
+              const authAvailW = drawSize - pad * 2;
+              ctx.font = `500 ${type.author}px ${serifFace}`;
+              const authW = ctx.measureText(authText).width;
+              const authFontPx = authW > authAvailW ? Math.max(4, type.author * (authAvailW / authW)) : type.author;
               ctx.shadowBlur = 0;
               ctx.fillStyle = 'rgba(212,175,55,0.88)';
-              ctx.font = `500 ${type.author}px "Iowan Old Style", "Palatino Linotype", Palatino, "Times New Roman", serif`;
+              ctx.font = `500 ${authFontPx}px ${serifFace}`;
               ctx.textAlign = 'right';
               ctx.textBaseline = 'bottom';
-              ctx.fillText(clipText(owned.name ? `— ${owned.name}` : '', type.author, drawSize - pad * 2), ox + drawSize - pad, oy + drawSize - pad);
+              ctx.fillText(authText, ox + drawSize - pad, oy + drawSize - pad);
             }
           } else {
             ctx.shadowBlur = 0;

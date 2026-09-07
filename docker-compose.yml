@@ -5,34 +5,47 @@ services:
     image: postgres:15
     container_name: the-last-website-db
     environment:
-      POSTGRES_DB: thelastwebsite
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
-    ports:
-      - "5432:5432"
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d thelastwebsite"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_NAME}"]
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - internal
+    restart: unless-stopped
 
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     container_name: the-last-website-backend
-    ports:
-      - "8080:8080"
     environment:
-      DATABASE_URL: jdbc:postgresql://postgres:5432/thelastwebsite
-      DB_USERNAME: postgres
-      DB_PASSWORD: password
-      SPRING_PROFILES_ACTIVE: dev
+      DATABASE_URL: jdbc:postgresql://postgres:5432/${DB_NAME}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      SPRING_PROFILES_ACTIVE: prod
+      EMAIL_HOST: ${EMAIL_HOST}
+      EMAIL_PORT: ${EMAIL_PORT}
+      EMAIL_USERNAME: ${EMAIL_USERNAME}
+      EMAIL_PASSWORD: ${EMAIL_PASSWORD}
+      EMAIL_FROM: ${EMAIL_FROM}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
+      MAGIC_LINK_BASE_URL: ${APP_URL}
+      PAYMENT_SUCCESS_URL: ${APP_URL}/verify
+      PAYMENT_CANCEL_URL: ${APP_URL}/?canceled=1
+      ADMIN_TOKEN: ${ADMIN_TOKEN}
     depends_on:
       postgres:
         condition: service_healthy
+    networks:
+      - internal
     restart: unless-stopped
 
   frontend:
@@ -40,12 +53,57 @@ services:
       context: .
       dockerfile: frontend/Dockerfile
     container_name: the-last-website-frontend
-    ports:
-      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: ${API_URL}
     depends_on:
-      backend:
-        condition: service_started
+      - backend
+    networks:
+      - internal
     restart: unless-stopped
+
+  n8n:
+    image: n8nio/n8n
+    container_name: the-last-website-n8n
+    environment:
+      N8N_HOST: ${N8N_DOMAIN}
+      N8N_PORT: 5678
+      N8N_PROTOCOL: https
+      WEBHOOK_URL: https://${N8N_DOMAIN}/
+      N8N_BASIC_AUTH_ACTIVE: "true"
+      N8N_BASIC_AUTH_USER: ${N8N_USER}
+      N8N_BASIC_AUTH_PASSWORD: ${N8N_PASSWORD}
+    volumes:
+      - n8n_data:/home/node/.n8n
+    networks:
+      - internal
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2
+    container_name: the-last-website-caddy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN}
+    networks:
+      - internal
+    depends_on:
+      - frontend
+      - backend
+      - n8n
+    restart: unless-stopped
+
+networks:
+  internal:
+    driver: bridge
 
 volumes:
   postgres_data:
+  n8n_data:
+  caddy_data:
+  caddy_config:

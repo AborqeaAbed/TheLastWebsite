@@ -1,13 +1,47 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { ClaimForm, Modal } from '../components/Modal';
+import { ClaimForm, Modal, PaymentModal } from '../components/Modal';
 import { ManageSpot, SearchOverlay, ShareButtons } from '../components/Overlays';
 import { useMapEngine } from '../hooks/useMapEngine';
 import { api } from '../services/api';
 import type { Spot, Stats } from '../types';
 
-function formatClaimTime(claimedAt?: string) {
+function PricingTiers({ claimed, total }: { claimed: number; total: number }) {
+  const foundingClaimed = Math.min(Math.max(0, claimed), 1000);
+  const foundingRemaining = Math.max(0, 1000 - foundingClaimed);
+  const standardClaimed = Math.max(0, claimed - 1000);
+  const standardTotal = total - 1000;
+  const standardRemaining = standardTotal - standardClaimed;
+  const foundingActive = claimed < 1000;
+
+  return (
+    <div className="pricing-tiers">
+      <div className={`pricing-tier${foundingActive ? ' active' : ''}`}>
+        <span className="pricing-tier-label">FOUNDING</span>
+        <span className="pricing-tier-price">$1</span>
+        <div className="pricing-tier-bar" aria-hidden="true">
+          <div className="pricing-tier-fill" style={{ width: `${Math.max(2, (foundingClaimed / 1000) * 100)}%` }} />
+        </div>
+        <span className="pricing-tier-count">{foundingClaimed.toLocaleString()} / 1,000</span>
+        {foundingActive
+          ? <span className="pricing-tier-note">{foundingRemaining.toLocaleString()} remaining</span>
+          : <span className="pricing-tier-note sold-out">COMPLETE</span>}
+      </div>
+      <div className={`pricing-tier${!foundingActive ? ' active' : ''}`}>
+        <span className="pricing-tier-label">STANDARD</span>
+        <span className="pricing-tier-price">$5</span>
+        <div className="pricing-tier-bar" aria-hidden="true">
+          <div className="pricing-tier-fill" style={{ width: standardTotal > 0 ? `${Math.max(0, (standardClaimed / standardTotal) * 100)}%` : '0%' }} />
+        </div>
+        <span className="pricing-tier-count">{standardClaimed.toLocaleString()} / {standardTotal.toLocaleString()}</span>
+        <span className="pricing-tier-note">{standardRemaining.toLocaleString()} remaining</span>
+      </div>
+    </div>
+  );
+}
+
+function formatClaimTime(claimedAt?: string | null) {
   if (!claimedAt) return 'Permanent';
   return `${new Date(claimedAt).toLocaleString('en-US', {
     year: 'numeric',
@@ -23,7 +57,18 @@ function formatClaimTime(claimedAt?: string) {
 
 export default function HomePage() {
   const { bind, hover, selected, setSelected, flyTo, zoomBy, pulse } = useMapEngine();
-  const [stats, setStats] = useState<Stats>({ claimed: 0, available: 1000000, pendingVerification: 0, reserved: 0, total: 1000000 });
+  const [stats, setStats] = useState<Stats>({
+    claimed: 0,
+    available: 1000000,
+    pendingVerification: 0,
+    reserved: 0,
+    total: 1000000,
+    launchSpotsRemaining: 1000,
+    currentPriceCents: 100,
+    nextPriceCents: 500,
+    launchRevenueCents: 0,
+    launchRevenueGoalCents: 100000,
+  });
   const [latest, setLatest] = useState<Spot[]>([]);
   const [searchOpen, setSearchOpen] = useState(false);
   const [latestOpen, setLatestOpen] = useState(false);
@@ -31,6 +76,14 @@ export default function HomePage() {
   const [heroVisible, setHeroVisible] = useState(true);
   const [claimError, setClaimError] = useState('');
   const [claiming, setClaiming] = useState(false);
+  const [paymentError, setPaymentError] = useState('');
+  const [paying, setPaying] = useState(false);
+  const [pendingClaim, setPendingClaim] = useState<{
+    name: string;
+    message: string;
+    email: string;
+    reservedUntil: string;
+  } | null>(null);
   const [live, setLive] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [displayClaimed, setDisplayClaimed] = useState(0);
@@ -81,13 +134,37 @@ export default function HomePage() {
     setClaimError('');
     api.track('claim_started');
     try {
-      const result = await api.checkout(selected.spotNumber, values);
-      api.track('checkout_started');
-      window.location.href = result.url.startsWith('http') ? result.url : result.url;
+      const reserved = await api.reserve(selected.spotNumber);
+      setPendingClaim({ ...values, reservedUntil: reserved.reservedUntil });
+      setSelected({ ...selected, status: 'RESERVED' });
     } catch (err) {
-      setClaimError(err instanceof Error ? err.message : 'Payment failed');
+      setClaimError(err instanceof Error ? err.message : 'This spot was just claimed by someone else.');
     } finally {
       setClaiming(false);
+    }
+  };
+
+  const closePayment = async () => {
+    if (selected && pendingClaim) {
+      await api.release(selected.spotNumber).catch(() => undefined);
+    }
+    setPendingClaim(null);
+    setPaymentError('');
+    setPaying(false);
+    setSelected(null);
+  };
+
+  const pay = async (provider: 'STRIPE' | 'PAYPAL') => {
+    if (!selected || !pendingClaim) return;
+    setPaying(true);
+    setPaymentError('');
+    try {
+      const result = await api.checkout(selected.spotNumber, { ...pendingClaim, provider });
+      api.track('checkout_started');
+      window.location.href = result.url;
+    } catch (err) {
+      setPaymentError(err instanceof Error ? err.message : 'Payment failed');
+      setPaying(false);
     }
   };
 
@@ -107,7 +184,6 @@ export default function HomePage() {
           <p>THE LAST WEBSITE</p>
         </div>
         <nav aria-label="Primary" className="hidden md:flex gap-2 text-sm">
-          <button className="nav-link" onClick={() => setHeroVisible(false)}>EXPLORE</button>
           <button className="nav-link" onClick={() => { setSearchOpen(true); api.track('search_started'); }}>SEARCH</button>
           <button className="nav-link" onClick={goRandom}>RANDOM</button>
           <button className="nav-link" onClick={async () => { setLatest(await api.latest().catch(() => [])); setLatestOpen(true); }}>LATEST CLAIMS</button>
@@ -116,14 +192,18 @@ export default function HomePage() {
         <div className="flex items-center gap-3">
           <div className="stats-chip" aria-live="polite">
             <span className="stats-live" aria-hidden="true" />
-            <span className="spot-number">{displayClaimed.toLocaleString()} / {stats.total.toLocaleString()}</span>
+            <span className="stats-chip-count">{displayClaimed.toLocaleString()} / {stats.total.toLocaleString()}</span>
+            <span className="stats-chip-divider" aria-hidden="true" />
+            <span className="stats-chip-current-price">{displayClaimed < 1000 ? '$1' : '$5'}</span>
+            {displayClaimed < 1000 && (
+              <span className="stats-chip-meta">{Math.max(0, 1000 - displayClaimed).toLocaleString()} left</span>
+            )}
           </div>
           <button className="icon-btn md:hidden" aria-label="Open menu" onClick={() => setMenuOpen((v) => !v)}>☰</button>
         </div>
       </header>
       {menuOpen && (
         <nav aria-label="Mobile" className="fixed top-20 left-1/2 z-30 w-[min(1100px,calc(100%-24px))] -translate-x-1/2 glass-ui rounded-[18px] p-3 flex flex-col md:hidden">
-          <button className="nav-link text-left" onClick={() => { setHeroVisible(false); setMenuOpen(false); }}>EXPLORE</button>
           <button className="nav-link text-left" onClick={() => { setSearchOpen(true); setMenuOpen(false); }}>SEARCH</button>
           <button className="nav-link text-left" onClick={() => { goRandom(); setMenuOpen(false); }}>RANDOM</button>
           <button className="nav-link text-left" onClick={async () => { setLatest(await api.latest().catch(() => [])); setLatestOpen(true); setMenuOpen(false); }}>LATEST CLAIMS</button>
@@ -138,19 +218,12 @@ export default function HomePage() {
               <img className="header-brand-mark" src="/icon-v3.png" alt="" width={28} height={28} />
               THE LAST WEBSITE
             </p>
-            <h1>CLAIM YOUR PERMANENT SPOT ON THE INTERNET</h1>
-            <p className="mt-6 mx-auto max-w-[500px] text-[1.1rem] leading-relaxed text-[var(--color-text-secondary)]">1,000,000 spots. One permanent place on the Internet. Leave your message for the future.</p>
-            <div className="mt-8 flex flex-wrap justify-center gap-4">
+            <h1 className="hero-headline">CLAIM YOUR PERMANENT SPOT ON THE INTERNET</h1>
+            <p className="mt-4 mx-auto max-w-[420px] text-[1rem] leading-relaxed text-[var(--color-text-secondary)]">1,000,000 spots. One permanent place on the Internet.</p>
+            <PricingTiers claimed={displayClaimed} total={stats.total} />
+            <div className="mt-7 flex flex-wrap justify-center gap-4">
               <button className="btn-primary" onClick={() => setHeroVisible(false)}>EXPLORE</button>
-              <button className="btn-secondary" onClick={goRandom}>CLAIM A SPOT</button>
-            </div>
-            <div className="hero-stats mt-10">
-              <p className="hero-stats-number">{displayClaimed.toLocaleString()} / {stats.total.toLocaleString()}</p>
-              <p className="hero-stats-label">SPOTS CLAIMED</p>
-              <div className="progress-track" aria-hidden="true">
-                <div className="progress-fill" style={{ width: `${Math.max(2, (displayClaimed / stats.total) * 100)}%` }} />
-              </div>
-              <p className="hero-stats-remaining">{stats.available.toLocaleString()} spots remaining</p>
+              <button className="btn-secondary" onClick={() => { setHeroVisible(false); goRandom(); }}>CLAIM A SPOT</button>
             </div>
           </div>
         </section>
@@ -180,7 +253,7 @@ export default function HomePage() {
           ) : (
             <>
               <p className="hover-status">AVAILABLE</p>
-              <p className="hover-cta">Claim for $1</p>
+              <p className="hover-cta">{stats.currentPriceCents === 100 ? 'Claim — $1' : 'Claim — $5'}</p>
             </>
           )}
         </div>
@@ -239,11 +312,25 @@ export default function HomePage() {
         </Modal>
       )}
 
-      {selected && selected.status !== 'CLAIMED' && (
+      {selected && selected.status !== 'CLAIMED' && !pendingClaim && (
         <Modal title={`Claim Spot #${selected.spotNumber.toLocaleString()}`} onClose={() => setSelected(null)}>
           <p className="mb-6 text-[var(--color-text-secondary)]">This area is still waiting for someone.</p>
           <ClaimForm onSubmit={claim} error={claimError} loading={claiming} />
         </Modal>
+      )}
+
+      {selected && pendingClaim && (
+        <PaymentModal
+          spotNumber={selected.spotNumber}
+          reservedUntil={pendingClaim.reservedUntil}
+          values={pendingClaim}
+          priceCents={stats.currentPriceCents}
+          launchSpotsRemaining={stats.launchSpotsRemaining}
+          error={paymentError}
+          loading={paying}
+          onPay={pay}
+          onClose={closePayment}
+        />
       )}
 
       <SearchOverlay

@@ -9,6 +9,9 @@ public class Constants {
     public static final int MAX_NAME_LENGTH = 80;
     public static final String CURRENCY = "usd";
     public static final int SPOT_PRICE_CENTS = 100;
+    public static final int LAUNCH_PRICE_CENTS = 100;
+    public static final int STANDARD_PRICE_CENTS = 500;
+    public static final int LAUNCH_SUBSCRIBER_LIMIT = 1000;
 
     public static final String STATUS_AVAILABLE = "AVAILABLE";
     public static final String STATUS_RESERVED = "RESERVED";
@@ -32,4 +35,7 @@ public class Constants {
     public static final String PAYMENT_SUCCEEDED = "SUCCEEDED";
     public static final String PAYMENT_FAILED = "FAILED";
     public static final String PAYMENT_REFUNDED = "REFUNDED";
+
+    public static final String PAYMENT_PROVIDER_STRIPE = "STRIPE";
+    public static final String PAYMENT_PROVIDER_PAYPAL = "PAYPAL";
 }
