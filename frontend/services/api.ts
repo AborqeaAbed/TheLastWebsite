@@ -48,9 +48,13 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
-  requestLink: (email: string) =>
-    json('/api/auth/request-magic-link', { method: 'POST', body: JSON.stringify({ email }) }),
-  verify: (token: string) => json<{ verified: boolean; spotNumber?: number; name?: string; message?: string }>(`/api/auth/verify?token=${encodeURIComponent(token)}`),
+  requestCode: (email: string) =>
+    json('/api/auth/request-code', { method: 'POST', body: JSON.stringify({ email }) }),
+  verifyCode: (email: string, code: string, purpose: string) =>
+    json<{ verified: boolean; spotNumber?: number; name?: string; message?: string }>('/api/auth/verify-code', {
+      method: 'POST',
+      body: JSON.stringify({ email, code, purpose }),
+    }),
   me: () => json<{ email: string; verified: boolean }>('/api/me'),
   mySpots: () => json<Spot[]>('/api/me/spots'),
   updateSpot: (n: number, body: { name: string; message: string }) =>

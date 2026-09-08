@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { Modal } from './Modal';
 import { api } from '../services/api';
 import { numberToXY } from '../map/camera';
 import type { Spot } from '../types';
@@ -128,58 +129,157 @@ export function ManageSpot({
   onClose: () => void;
 }) {
   const [email, setEmail] = useState('');
-  const [status, setStatus] = useState('');
+  const [code, setCode] = useState('');
+  const [step, setStep] = useState<'email' | 'code' | 'verified'>('email');
   const [spots, setSpots] = useState<Spot[]>([]);
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [confirmingClose, setConfirmingClose] = useState(false);
 
   useEffect(() => {
-    if (!open) return;
-    api.mySpots().then(setSpots).catch(() => setSpots([]));
+    if (!open) {
+      setStep('email');
+      setEmail('');
+      setCode('');
+      setSpots([]);
+      setError('');
+      setConfirmingClose(false);
+    }
   }, [open]);
 
   if (!open) return null;
 
+  const handleClose = () => {
+    if (step === 'verified') {
+      setConfirmingClose(true);
+    } else {
+      onClose();
+    }
+  };
+
+  const requestCode = async (e: FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    try {
+      await api.requestCode(email);
+      setStep('code');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not send code');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const verifyCode = async (e: FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    try {
+      await api.verifyCode(email, code, 'MANAGE');
+      const mySpots = await api.mySpots();
+      setSpots(mySpots);
+      setStep('verified');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Invalid or expired code');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div role="dialog" aria-modal="true" aria-labelledby="manage-title" className="modal-card" onClick={(e) => e.stopPropagation()}>
-        <h2 id="manage-title">Manage your spot</h2>
-        <p className="text-[var(--color-text-secondary)] mt-2 mb-6">Enter the email associated with your spot.</p>
-        <form
-          className="flex flex-col gap-4"
-          onSubmit={async (e) => {
-            e.preventDefault();
-            try {
-              await api.requestLink(email);
-              setStatus('Management link sent. Check your inbox.');
-              setError('');
-            } catch (err) {
-              setError(err instanceof Error ? err.message : 'Could not send link');
-            }
-          }}
-        >
-          <label className="field">
-            Email
-            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
-          </label>
-          {error ? <p className="error-text" role="alert">⚠ {error}</p> : null}
-          {status ? <p className="success-text" role="status">✓ {status}</p> : null}
-          <button className="btn-primary" type="submit">SEND ME A MANAGEMENT LINK</button>
-        </form>
-        {spots.length > 0 && (
-          <ul className="mt-8 space-y-4">
-            {spots.map((spot) => (
-              <li key={spot.spotNumber} className="claim-preview">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="spot-number">#{spot.spotNumber.toLocaleString()}</div>
-                  <span className="status-badge">CLAIMED</span>
-                </div>
-                <EditSpot spot={spot} />
-              </li>
-            ))}
-          </ul>
+    <>
+      <Modal title="Manage your spot" onClose={handleClose} scrollable wide>
+        {step === 'email' && (
+          <>
+            <p className="text-[var(--color-text-secondary)] mb-6">Enter the email associated with your spot.</p>
+            <form onSubmit={requestCode}>
+              <div className="email-inline-row">
+                <input
+                  type="email"
+                  className="email-inline-input"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  required
+                  autoComplete="email"
+                />
+                <button className="email-inline-btn" type="submit" disabled={loading}>
+                  {loading ? '...' : 'SEND CODE'}
+                </button>
+              </div>
+              {error ? <p className="error-text mt-3" role="alert">⚠ {error}</p> : null}
+            </form>
+          </>
         )}
-      </div>
-    </div>
+
+        {step === 'code' && (
+          <>
+            <p className="text-[var(--color-text-secondary)] mb-6">
+              We sent a 6-digit code to <strong>{email}</strong>. Enter it below.
+            </p>
+            <form className="flex flex-col gap-4" onSubmit={verifyCode}>
+              <label className="field">
+                Verification Code
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="\d{6}"
+                  maxLength={6}
+                  value={code}
+                  onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+                  placeholder="000000"
+                  required
+                  autoFocus
+                />
+              </label>
+              {error ? <p className="error-text" role="alert">⚠ {error}</p> : null}
+              <button className="btn-primary" type="submit" disabled={loading}>
+                {loading ? 'VERIFYING...' : 'VERIFY CODE'}
+              </button>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => { setStep('email'); setError(''); setCode(''); }}
+              >
+                USE A DIFFERENT EMAIL
+              </button>
+            </form>
+          </>
+        )}
+
+        {step === 'verified' && (
+          spots.length === 0 ? (
+            <p className="text-[var(--color-text-secondary)]">No claimed spots found for this email.</p>
+          ) : (
+            <ul className="space-y-4">
+              {spots.map((spot) => (
+                <li key={spot.spotNumber} className="claim-preview">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="spot-number">#{spot.spotNumber.toLocaleString()}</div>
+                    <span className="status-badge">CLAIMED</span>
+                  </div>
+                  <EditSpot spot={spot} />
+                </li>
+              ))}
+            </ul>
+          )
+        )}
+      </Modal>
+
+      {confirmingClose && (
+        <div className="confirm-dialog-backdrop" onClick={() => setConfirmingClose(false)}>
+          <div className="confirm-dialog" onClick={(e) => e.stopPropagation()}>
+            <p className="confirm-dialog-title">Close without saving?</p>
+            <p className="confirm-dialog-message">Any unsaved changes will be lost.</p>
+            <div className="confirm-dialog-actions">
+              <button className="btn-secondary btn-sm" onClick={() => setConfirmingClose(false)}>KEEP EDITING</button>
+              <button className="btn-primary btn-sm" onClick={() => { setConfirmingClose(false); onClose(); }}>CLOSE ANYWAY</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -187,6 +287,8 @@ function EditSpot({ spot }: { spot: Spot }) {
   const [name, setName] = useState(spot.name || '');
   const [message, setMessage] = useState(spot.message || '');
   const [status, setStatus] = useState('');
+  const nameLeft = 80 - name.length;
+  const messageLeft = 200 - message.length;
   return (
     <form
       className="flex flex-col gap-3 mt-3"
@@ -200,8 +302,16 @@ function EditSpot({ spot }: { spot: Spot }) {
         }
       }}
     >
-      <label className="field">Name<input value={name} onChange={(e) => setName(e.target.value)} /></label>
-      <label className="field">Message<textarea value={message} onChange={(e) => setMessage(e.target.value)} /></label>
+      <label className="field">
+        Name
+        <input value={name} maxLength={80} onChange={(e) => setName(e.target.value)} />
+        <span className={`field-meta${nameLeft < 10 ? ' limit' : nameLeft < 20 ? ' warn' : ''}`}>{nameLeft} left</span>
+      </label>
+      <label className="field">
+        Message
+        <textarea value={message} maxLength={200} rows={2} onChange={(e) => setMessage(e.target.value)} />
+        <span className={`field-meta${messageLeft < 15 ? ' limit' : messageLeft < 30 ? ' warn' : ''}`}>{messageLeft} left</span>
+      </label>
       <button className="btn-secondary" type="submit">SAVE CHANGES</button>
       {status ? <p role="status">{status}</p> : null}
     </form>

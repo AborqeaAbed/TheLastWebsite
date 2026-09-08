@@ -5,7 +5,8 @@ public class Constants {
     public static final int GRID_SIZE = 1000;
     public static final int RESERVATION_TIMEOUT_SECONDS = 300;
     public static final int MAGIC_LINK_EXPIRY_MINUTES = 60;
-      public static final int MAX_MESSAGE_LENGTH = 100;
+    public static final int OTP_EXPIRY_MINUTES = 15;
+      public static final int MAX_MESSAGE_LENGTH = 200;
     public static final int MAX_NAME_LENGTH = 80;
     public static final String CURRENCY = "usd";
     public static final int SPOT_PRICE_CENTS = 100;

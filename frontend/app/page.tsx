@@ -56,7 +56,7 @@ function formatClaimTime(claimedAt?: string | null) {
 }
 
 export default function HomePage() {
-  const { bind, hover, selected, setSelected, flyTo, zoomBy, pulse } = useMapEngine();
+  const { bind, hover, selected, setSelected, flyTo, zoomBy, pulse, setPulse } = useMapEngine();
   const [stats, setStats] = useState<Stats>({
     claimed: 0,
     available: 1000000,
@@ -84,6 +84,10 @@ export default function HomePage() {
     email: string;
     reservedUntil: string;
   } | null>(null);
+  const [pendingClaimVerify, setPendingClaimVerify] = useState<{ spotNumber: number; email: string } | null>(null);
+  const [claimVerifyCode, setClaimVerifyCode] = useState('');
+  const [claimVerifyError, setClaimVerifyError] = useState('');
+  const [claimVerifying, setClaimVerifying] = useState(false);
   const [live, setLive] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [displayClaimed, setDisplayClaimed] = useState(0);
@@ -161,10 +165,37 @@ export default function HomePage() {
     try {
       const result = await api.checkout(selected.spotNumber, { ...pendingClaim, provider });
       api.track('checkout_started');
-      window.location.href = result.url;
+      if (result.mocked) {
+        setPendingClaim(null);
+        setPendingClaimVerify({ spotNumber: selected.spotNumber, email: pendingClaim.email });
+        setClaimVerifyCode('');
+        setClaimVerifyError('');
+        setPaying(false);
+      } else {
+        window.location.href = result.url;
+      }
     } catch (err) {
       setPaymentError(err instanceof Error ? err.message : 'Payment failed');
       setPaying(false);
+    }
+  };
+
+  const submitClaimVerify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!pendingClaimVerify) return;
+    setClaimVerifying(true);
+    setClaimVerifyError('');
+    try {
+      await api.verifyCode(pendingClaimVerify.email, claimVerifyCode, 'CLAIM');
+      const spot = await api.spot(pendingClaimVerify.spotNumber);
+      setPendingClaimVerify(null);
+      setSelected(spot);
+      setPulse(spot.spotNumber);
+      api.stats().then(setStats).catch(() => undefined);
+    } catch (err) {
+      setClaimVerifyError(err instanceof Error ? err.message : 'Invalid or expired code');
+    } finally {
+      setClaimVerifying(false);
     }
   };
 
@@ -260,7 +291,7 @@ export default function HomePage() {
       )}
 
       {latestOpen && (
-        <Modal title="Latest claims" onClose={() => setLatestOpen(false)} scrollable>
+        <Modal title="Latest claims" onClose={() => setLatestOpen(false)} scrollable wide>
           {latest.length === 0 ? (
             <p className="text-[var(--color-text-secondary)]">No claims yet.</p>
           ) : (
@@ -305,7 +336,6 @@ export default function HomePage() {
               <ShareButtons
                 spot={selected}
                 onView={() => setSelected(null)}
-                onDone={() => setSelected(null)}
               />
             </div>
           </div>
@@ -331,6 +361,37 @@ export default function HomePage() {
           onPay={pay}
           onClose={closePayment}
         />
+      )}
+
+      {pendingClaimVerify && (
+        <Modal
+          title={`Verify Spot #${pendingClaimVerify.spotNumber.toLocaleString()}`}
+          onClose={() => { setPendingClaimVerify(null); setSelected(null); }}
+        >
+          <p className="text-[var(--color-text-secondary)] mb-6">
+            A 6-digit verification code was sent to <strong>{pendingClaimVerify.email}</strong>. Enter it below to claim your spot.
+          </p>
+          <form className="flex flex-col gap-4" onSubmit={submitClaimVerify}>
+            <label className="field">
+              Verification Code
+              <input
+                type="text"
+                inputMode="numeric"
+                pattern="\d{6}"
+                maxLength={6}
+                value={claimVerifyCode}
+                onChange={(e) => setClaimVerifyCode(e.target.value.replace(/\D/g, ''))}
+                placeholder="000000"
+                required
+                autoFocus
+              />
+            </label>
+            {claimVerifyError ? <p className="error-text" role="alert">⚠ {claimVerifyError}</p> : null}
+            <button className="btn-primary" type="submit" disabled={claimVerifying}>
+              {claimVerifying ? 'VERIFYING...' : 'VERIFY & CLAIM SPOT'}
+            </button>
+          </form>
+        </Modal>
       )}
 
       <SearchOverlay

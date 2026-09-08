@@ -9,7 +9,7 @@ public class UpdateSpotRequest {
     private String name;
 
     @NotBlank
-    @Size(max = 100)
+    @Size(max = 200)
     private String message;
 
     public String getName() {

@@ -183,6 +183,21 @@
 .modal-content {
   overflow-y: auto;
   max-height: calc(90vh - 120px);
+  scrollbar-color: rgba(212, 175, 55, 0.3) transparent;
+  scrollbar-width: thin;
+}
+
+.modal-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.modal-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.modal-content::-webkit-scrollbar-thumb {
+  background: rgba(212, 175, 55, 0.3);
+  border-radius: 8px;
 }
 
 .modal-backdrop {
@@ -199,6 +214,7 @@
 }
 
 .modal-card {
+  position: relative;
   width: min(480px, calc(100vw - 32px));
   max-width: 480px;
   max-height: 88vh;
@@ -211,12 +227,62 @@
   flex-direction: column;
 }
 
+.modal-card.wide {
+  width: min(720px, calc(100vw - 32px));
+  max-width: 720px;
+}
+
 .modal-card.scrollable {
   overflow: hidden;
 }
 
 .modal-card.scrollable .modal-content {
   overflow-y: auto;
+}
+
+
+.confirm-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(15, 17, 23, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.confirm-dialog {
+  background: #252D3D;
+  border: 1px solid rgba(212, 175, 55, 0.25);
+  border-radius: 14px;
+  padding: 24px;
+  width: min(320px, 100%);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6), inset 0 1px 1px rgba(255, 255, 255, 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  text-align: center;
+}
+
+.confirm-dialog-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #E8E8E8;
+  margin: 0;
+}
+
+.confirm-dialog-message {
+  font-size: 0.8125rem;
+  color: #A0A8B8;
+  margin: 0;
+}
+
+.confirm-dialog-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 4px;
 }
 
 @media (max-width: 768px) {

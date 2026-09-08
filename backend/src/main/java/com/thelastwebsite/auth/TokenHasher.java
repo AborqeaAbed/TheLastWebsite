@@ -18,6 +18,10 @@ public class TokenHasher {
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
 
+    public String generateCode() {
+        return String.format("%06d", random.nextInt(1_000_000));
+    }
+
     public String hash(String raw) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");

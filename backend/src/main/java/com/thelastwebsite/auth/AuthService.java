@@ -46,28 +46,25 @@ public class AuthService {
     }
 
     @Transactional
-    public void sendManagementLink(String email) {
+    public void sendManagementCode(String email) {
         User user = userRepository.findByEmail(email.toLowerCase())
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "No spots found for this email."));
-        String raw = createToken(user, null, PURPOSE_MANAGE);
-        emailService.sendManagementLink(user.getEmail(), raw);
+        String code = createCode(user, null, PURPOSE_MANAGE);
+        emailService.sendManagementCode(user.getEmail(), code);
     }
 
     @Transactional
-    public void sendClaimLink(User user, Spot spot) {
-        String raw = createToken(user, spot, PURPOSE_CLAIM);
-        emailService.sendClaimVerification(user.getEmail(), spot.getSpotNumber(), raw);
+    public void sendClaimCode(User user, Spot spot) {
+        String code = createCode(user, spot, PURPOSE_CLAIM);
+        emailService.sendClaimVerification(user.getEmail(), spot.getSpotNumber(), code);
     }
 
     @Transactional
-    public VerifyResult verifyEmail(String rawToken) {
-        String hash = tokenHasher.hash(rawToken);
-        VerificationToken match = verificationTokenRepository.findByTokenHash(hash)
-                .orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, "This link has expired or has already been used."));
-
-        if (match.getExpiresAt().isBefore(LocalDateTime.now()) || match.getUsedAt() != null) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "This link has expired or has already been used.");
-        }
+    public VerifyResult verifyCode(String email, String code, String purpose) {
+        String hash = tokenHasher.hash(code);
+        VerificationToken match = verificationTokenRepository
+                .findActiveCode(email.toLowerCase(), purpose, hash, LocalDateTime.now())
+                .orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, "Invalid or expired code."));
 
         match.setUsedAt(LocalDateTime.now());
         verificationTokenRepository.save(match);
@@ -78,7 +75,7 @@ public class AuthService {
         userRepository.save(user);
 
         Spot claimed = null;
-        if (PURPOSE_CLAIM.equals(match.getPurpose()) && match.getSpot() != null) {
+        if (PURPOSE_CLAIM.equals(purpose) && match.getSpot() != null) {
             claimed = match.getSpot();
             claimed.setStatus(Constants.STATUS_CLAIMED);
             claimed.setUser(user);
@@ -87,6 +84,7 @@ public class AuthService {
             claimed.setUpdatedAt(LocalDateTime.now());
             spotRepository.save(claimed);
             auditService.record(user, claimed, Constants.ACTION_SPOT_CLAIMED, null);
+            emailService.sendClaimConfirmation(user.getEmail(), claimed.getSpotNumber(), claimed.getName(), claimed.getMessage());
         }
 
         AuthSession session = new AuthSession();
@@ -119,16 +117,16 @@ public class AuthService {
         });
     }
 
-    private String createToken(User user, Spot spot, String purpose) {
-        String raw = tokenHasher.generateRawToken();
+    private String createCode(User user, Spot spot, String purpose) {
+        String code = tokenHasher.generateCode();
         VerificationToken token = new VerificationToken();
         token.setUser(user);
         token.setSpot(spot);
         token.setPurpose(purpose);
-        token.setTokenHash(tokenHasher.hash(raw));
-        token.setExpiresAt(LocalDateTime.now().plusMinutes(Constants.MAGIC_LINK_EXPIRY_MINUTES));
+        token.setTokenHash(tokenHasher.hash(code));
+        token.setExpiresAt(LocalDateTime.now().plusMinutes(Constants.OTP_EXPIRY_MINUTES));
         verificationTokenRepository.save(token);
-        return raw;
+        return code;
     }
 
     public record VerifyResult(String sessionToken, User user, Spot claimedSpot) {}

@@ -7,36 +7,45 @@ interface ModalProps {
   children: ReactNode;
   onClose: () => void;
   scrollable?: boolean;
+  wide?: boolean;
 }
 
-export function Modal({ title, children, onClose, scrollable = false }: ModalProps) {
+export function Modal({ title, children, onClose, scrollable = false, wide = false }: ModalProps) {
   const ref = useRef<HTMLDivElement>(null);
   const titleId = useId();
 
+  // Focus first element on mount; restore on unmount — runs once only
   useEffect(() => {
     const prev = document.activeElement as HTMLElement | null;
-    const root = ref.current;
-    const focusable = root?.querySelectorAll<HTMLElement>('button, [href], input, textarea, [tabindex]:not([tabindex="-1"])');
+    const focusable = ref.current?.querySelectorAll<HTMLElement>(
+      'button, [href], input, textarea, [tabindex]:not([tabindex="-1"])'
+    );
     focusable?.[0]?.focus();
+    return () => prev?.focus();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Keyboard trap — re-registers when onClose identity changes
+  useEffect(() => {
+    const root = ref.current;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-      if (e.key === 'Tab' && focusable && focusable.length) {
+      if (e.key === 'Escape') { onClose(); return; }
+      if (e.key === 'Tab') {
+        const focusable = root?.querySelectorAll<HTMLElement>(
+          'button, [href], input, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        if (!focusable?.length) return;
         const first = focusable[0];
         const last = focusable[focusable.length - 1];
         if (e.shiftKey && document.activeElement === first) {
-          e.preventDefault();
-          last.focus();
+          e.preventDefault(); last.focus();
         } else if (!e.shiftKey && document.activeElement === last) {
-          e.preventDefault();
-          first.focus();
+          e.preventDefault(); first.focus();
         }
       }
     };
     document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('keydown', onKey);
-      prev?.focus();
-    };
+    return () => document.removeEventListener('keydown', onKey);
   }, [onClose]);
 
   return (
@@ -52,7 +61,7 @@ export function Modal({ title, children, onClose, scrollable = false }: ModalPro
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className={`modal-card animate-fade-in${scrollable ? ' scrollable' : ''}`}
+        className={`modal-card animate-fade-in${scrollable ? ' scrollable' : ''}${wide ? ' wide' : ''}`}
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="modal-header">
@@ -164,7 +173,7 @@ export function ClaimForm({ onSubmit, error, loading }: ClaimForm) {
     });
   };
   const nameLeft = 80 - name.length;
-  const messageLeft = 100 - message.length;
+  const messageLeft = 200 - message.length;
   return (
     <form onSubmit={handle} className="flex flex-col claim-form">
       <label className="field">
@@ -174,7 +183,7 @@ export function ClaimForm({ onSubmit, error, loading }: ClaimForm) {
       </label>
       <label className="field">
         Message
-        <textarea name="message" required maxLength={100} rows={2} value={message} onChange={(e) => setMessage(e.target.value)} />
+        <textarea name="message" required maxLength={200} rows={2} value={message} onChange={(e) => setMessage(e.target.value)} />
         <span className={`field-meta${messageLeft < 15 ? ' limit' : messageLeft < 30 ? ' warn' : ''}`}>{messageLeft} left</span>
       </label>
       <label className="field">

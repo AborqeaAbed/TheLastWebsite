@@ -162,18 +162,12 @@ public class PaymentService {
         payment.setUpdatedAt(LocalDateTime.now());
         paymentRepository.save(payment);
 
-        // TODO: restore email verification before CLAIMED. For local testing, skip the inbox
-        // and permanently save the slot immediately after payment confirmation.
-        user.setEmailVerified(true);
-        user.setUpdatedAt(LocalDateTime.now());
-        spot.setStatus(Constants.STATUS_CLAIMED);
-        spot.setClaimedAt(LocalDateTime.now());
+        spot.setStatus(Constants.STATUS_PENDING_VERIFICATION);
         spot.setReservedUntil(null);
         spot.setUpdatedAt(LocalDateTime.now());
         spotRepository.save(spot);
         auditService.record(user, spot, Constants.ACTION_PAYMENT_COMPLETED, stripePaymentId);
-        auditService.record(user, spot, Constants.ACTION_SPOT_CLAIMED, "DEV_SKIP_EMAIL_VERIFICATION");
-        authService.sendClaimLink(user, spot);
+        authService.sendClaimCode(user, spot);
     }
 
     private void persistPendingPayment(String stripeId, User user, Spot spot) {

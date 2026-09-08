@@ -22,25 +22,19 @@ spring:
         format_sql: true
     open-in-view: false
 
-  mail:
-    host: ${EMAIL_HOST:smtp.gmail.com}
-    port: ${EMAIL_PORT:587}
-    username: ${EMAIL_USERNAME:}
-    password: ${EMAIL_PASSWORD:}
-    properties:
-      mail:
-        smtp:
-          auth: true
-          starttls:
-            enable: true
 
 stripe:
   secret-key: ${STRIPE_SECRET_KEY:}
   publishable-key: ${STRIPE_PUBLISHABLE_KEY:}
   webhook-secret: ${STRIPE_WEBHOOK_SECRET:}
 
+resend:
+  # TODO: rotate and inject via a secrets manager (e.g. HashiCorp Vault, AWS Secrets Manager, or GCP Secret Manager)
+  # Never hardcode secrets here — set RESEND_API_KEY in the environment or a local .env file (not committed).
+  api-key: ${RESEND_API_KEY}
+
 email:
-  from: ${EMAIL_FROM:hello@thelastwebsite.com}
+  from: ${EMAIL_FROM:onboarding@resend.dev}
   magic-link-base-url: ${MAGIC_LINK_BASE_URL:http://localhost:3000}
 
 admin:
