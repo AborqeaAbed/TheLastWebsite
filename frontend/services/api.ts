@@ -50,6 +50,8 @@ export const api = {
     }),
   requestCode: (email: string) =>
     json('/api/auth/request-code', { method: 'POST', body: JSON.stringify({ email }) }),
+  resendClaimCode: (email: string) =>
+    json('/api/auth/resend-claim-code', { method: 'POST', body: JSON.stringify({ email }) }),
   verifyCode: (email: string, code: string, purpose: string) =>
     json<{ verified: boolean; spotNumber?: number; name?: string; message?: string }>('/api/auth/verify-code', {
       method: 'POST',

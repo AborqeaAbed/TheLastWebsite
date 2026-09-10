@@ -222,8 +222,10 @@ public class SpotService {
 
     private void releaseIfExpired(Spot spot) {
         boolean unfinished = Constants.STATUS_RESERVED.equals(spot.getStatus())
-                || (Constants.STATUS_PENDING_VERIFICATION.equals(spot.getStatus()) && spot.getClaimedAt() == null);
-        boolean expired = spot.getReservedUntil() == null || spot.getReservedUntil().isBefore(LocalDateTime.now());
+                || (Constants.STATUS_PENDING_VERIFICATION.equals(spot.getStatus())
+                    && spot.getClaimedAt() == null
+                    && spot.getReservedUntil() != null);
+        boolean expired = spot.getReservedUntil() != null && spot.getReservedUntil().isBefore(LocalDateTime.now());
         if (unfinished && expired) {
             spot.setStatus(Constants.STATUS_AVAILABLE);
             spot.setReservedUntil(null);

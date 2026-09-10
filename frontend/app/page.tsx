@@ -88,6 +88,8 @@ export default function HomePage() {
   const [claimVerifyCode, setClaimVerifyCode] = useState('');
   const [claimVerifyError, setClaimVerifyError] = useState('');
   const [claimVerifying, setClaimVerifying] = useState(false);
+  const [claimResending, setClaimResending] = useState(false);
+  const [claimResendStatus, setClaimResendStatus] = useState('');
   const [live, setLive] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [displayClaimed, setDisplayClaimed] = useState(0);
@@ -97,6 +99,21 @@ export default function HomePage() {
     api.latest().then(setLatest).catch(() => undefined);
     api.track('homepage_view');
     api.track('map_loaded');
+  }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const spotParam = params.get('spot');
+    if (!spotParam) return;
+    const spotNumber = parseInt(spotParam, 10);
+    if (isNaN(spotNumber)) return;
+    api.spot(spotNumber).then((spot) => {
+      setHeroVisible(false);
+      flyTo(spot);
+    }).catch(() => undefined);
+  // flyTo is recreated every render (not memoized in useMapEngine) — depending on it here
+  // would re-fire this effect after every render it triggers, looping the fly-in animation forever.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -180,6 +197,21 @@ export default function HomePage() {
     }
   };
 
+  const resendClaimVerify = async () => {
+    if (!pendingClaimVerify) return;
+    setClaimResending(true);
+    setClaimResendStatus('');
+    setClaimVerifyError('');
+    try {
+      await api.resendClaimCode(pendingClaimVerify.email);
+      setClaimResendStatus('A new code is on its way.');
+    } catch (err) {
+      setClaimResendStatus(err instanceof Error ? err.message : 'Could not resend code.');
+    } finally {
+      setClaimResending(false);
+    }
+  };
+
   const submitClaimVerify = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!pendingClaimVerify) return;
@@ -215,10 +247,10 @@ export default function HomePage() {
           <p>THE LAST WEBSITE</p>
         </div>
         <nav aria-label="Primary" className="hidden md:flex gap-2 text-sm">
-          <button className="nav-link" onClick={() => { setSearchOpen(true); api.track('search_started'); }}>SEARCH</button>
-          <button className="nav-link" onClick={goRandom}>RANDOM</button>
-          <button className="nav-link" onClick={async () => { setLatest(await api.latest().catch(() => [])); setLatestOpen(true); }}>LATEST CLAIMS</button>
-          <button className="nav-link" onClick={() => setManageOpen(true)}>MY SPOT</button>
+          <button className="nav-link" onClick={() => { setHeroVisible(false); setSearchOpen(true); api.track('search_started'); }}>SEARCH</button>
+          <button className="nav-link" onClick={() => { setHeroVisible(false); goRandom(); }}>RANDOM</button>
+          <button className="nav-link" onClick={async () => { setHeroVisible(false); setLatest(await api.latest().catch(() => [])); setLatestOpen(true); }}>LATEST CLAIMS</button>
+          <button className="nav-link" onClick={() => { setHeroVisible(false); setManageOpen(true); }}>MY SPOT</button>
         </nav>
         <div className="flex items-center gap-3">
           <div className="stats-chip" aria-live="polite">
@@ -235,10 +267,10 @@ export default function HomePage() {
       </header>
       {menuOpen && (
         <nav aria-label="Mobile" className="fixed top-20 left-1/2 z-30 w-[min(1100px,calc(100%-24px))] -translate-x-1/2 glass-ui rounded-[18px] p-3 flex flex-col md:hidden">
-          <button className="nav-link text-left" onClick={() => { setSearchOpen(true); setMenuOpen(false); }}>SEARCH</button>
-          <button className="nav-link text-left" onClick={() => { goRandom(); setMenuOpen(false); }}>RANDOM</button>
-          <button className="nav-link text-left" onClick={async () => { setLatest(await api.latest().catch(() => [])); setLatestOpen(true); setMenuOpen(false); }}>LATEST CLAIMS</button>
-          <button className="nav-link text-left" onClick={() => { setManageOpen(true); setMenuOpen(false); }}>MY SPOT</button>
+          <button className="nav-link text-left" onClick={() => { setHeroVisible(false); setSearchOpen(true); setMenuOpen(false); }}>SEARCH</button>
+          <button className="nav-link text-left" onClick={() => { setHeroVisible(false); goRandom(); setMenuOpen(false); }}>RANDOM</button>
+          <button className="nav-link text-left" onClick={async () => { setHeroVisible(false); setLatest(await api.latest().catch(() => [])); setLatestOpen(true); setMenuOpen(false); }}>LATEST CLAIMS</button>
+          <button className="nav-link text-left" onClick={() => { setHeroVisible(false); setManageOpen(true); setMenuOpen(false); }}>MY SPOT</button>
         </nav>
       )}
 
@@ -343,7 +375,7 @@ export default function HomePage() {
       )}
 
       {selected && selected.status !== 'CLAIMED' && !pendingClaim && (
-        <Modal title={`Claim Spot #${selected.spotNumber.toLocaleString()}`} onClose={() => setSelected(null)}>
+        <Modal title={`Claim Spot #${selected.spotNumber.toLocaleString()}`} onClose={() => setSelected(null)} wide>
           <p className="mb-6 text-[var(--color-text-secondary)]">This area is still waiting for someone.</p>
           <ClaimForm onSubmit={claim} error={claimError} loading={claiming} />
         </Modal>
@@ -386,6 +418,13 @@ export default function HomePage() {
                 autoFocus
               />
             </label>
+            <p className="text-sm text-[var(--color-text-secondary)] text-center">
+              Didn&apos;t get a code?{' '}
+              <button type="button" className="resend-link" onClick={resendClaimVerify} disabled={claimResending}>
+                {claimResending ? 'Sending...' : 'Resend'}
+              </button>
+            </p>
+            {claimResendStatus ? <p className="text-sm text-[var(--color-text-secondary)] -mt-2" role="status">{claimResendStatus}</p> : null}
             {claimVerifyError ? <p className="error-text" role="alert">⚠ {claimVerifyError}</p> : null}
             <button className="btn-primary" type="submit" disabled={claimVerifying}>
               {claimVerifying ? 'VERIFYING...' : 'VERIFY & CLAIM SPOT'}

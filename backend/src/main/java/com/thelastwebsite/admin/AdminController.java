@@ -6,6 +6,7 @@ import com.thelastwebsite.common.AuditService;
 import com.thelastwebsite.common.Constants;
 import com.thelastwebsite.payments.Payment;
 import com.thelastwebsite.payments.PaymentRepository;
+import com.thelastwebsite.payments.PaymentService;
 import com.thelastwebsite.spots.Spot;
 import com.thelastwebsite.spots.SpotRepository;
 import com.thelastwebsite.spots.SpotService;
@@ -36,6 +37,7 @@ public class AdminController {
     private final SpotRepository spotRepository;
     private final UserRepository userRepository;
     private final PaymentRepository paymentRepository;
+    private final PaymentService paymentService;
     private final AuditLogRepository auditLogRepository;
     private final AuditService auditService;
     private final String adminToken;
@@ -44,6 +46,7 @@ public class AdminController {
                            SpotRepository spotRepository,
                            UserRepository userRepository,
                            PaymentRepository paymentRepository,
+                           PaymentService paymentService,
                            AuditLogRepository auditLogRepository,
                            AuditService auditService,
                            @Value("${admin.token:dev-admin-token}") String adminToken) {
@@ -51,6 +54,7 @@ public class AdminController {
         this.spotRepository = spotRepository;
         this.userRepository = userRepository;
         this.paymentRepository = paymentRepository;
+        this.paymentService = paymentService;
         this.auditLogRepository = auditLogRepository;
         this.auditService = auditService;
         this.adminToken = adminToken;
@@ -133,6 +137,19 @@ public class AdminController {
     public List<AuditLog> audit(@RequestHeader(value = "X-Admin-Token", required = false) String token) {
         requireAdmin(token);
         return auditLogRepository.findAllByOrderByCreatedAtDesc(PageRequest.of(0, 100));
+    }
+
+    @PostMapping("/payments/{stripeSessionId}/apply")
+    public Map<String, Object> applyPayment(@PathVariable String stripeSessionId,
+                                            @RequestHeader(value = "X-Admin-Token", required = false) String token) {
+        requireAdmin(token);
+        Payment payment = paymentRepository.findByStripePaymentId(stripeSessionId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Payment not found"));
+        if (Constants.PAYMENT_SUCCEEDED.equals(payment.getStatus())) {
+            return Map.of("status", "already_applied");
+        }
+        paymentService.applySuccessfulPayment(stripeSessionId, payment.getUser(), payment.getSpot(), payment.getAmount());
+        return Map.of("status", "applied", "spotNumber", payment.getSpot().getSpotNumber());
     }
 
     private void requireAdmin(String token) {

@@ -60,6 +60,15 @@ public class AuthService {
     }
 
     @Transactional
+    public void resendClaimCode(String email) {
+        User user = userRepository.findByEmail(email.toLowerCase())
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "No pending claim found for this email."));
+        Spot spot = spotRepository.findFirstByUserIdAndStatusOrderByUpdatedAtDesc(user.getId(), Constants.STATUS_PENDING_VERIFICATION)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "No pending claim found for this email."));
+        sendClaimCode(user, spot);
+    }
+
+    @Transactional
     public VerifyResult verifyCode(String email, String code, String purpose) {
         String hash = tokenHasher.hash(code);
         VerificationToken match = verificationTokenRepository

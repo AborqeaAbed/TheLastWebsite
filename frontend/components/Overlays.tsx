@@ -130,7 +130,7 @@ export function ManageSpot({
 }) {
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
-  const [step, setStep] = useState<'email' | 'code' | 'verified'>('email');
+  const [step, setStep] = useState<'checking' | 'email' | 'code' | 'verified'>('email');
   const [spots, setSpots] = useState<Spot[]>([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -144,7 +144,24 @@ export function ManageSpot({
       setSpots([]);
       setError('');
       setConfirmingClose(false);
+      return;
     }
+    // Reuse the session from a recent verification instead of asking again every time.
+    let cancelled = false;
+    setStep('checking');
+    api.mySpots()
+      .then((mySpots) => {
+        if (cancelled) return;
+        setSpots(mySpots);
+        setStep('verified');
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setStep('email');
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [open]);
 
   if (!open) return null;
@@ -190,6 +207,12 @@ export function ManageSpot({
   return (
     <>
       <Modal title="Manage your spot" onClose={handleClose} scrollable wide>
+        {step === 'checking' && (
+          <div className="space-y-3" aria-hidden="true">
+            <div className="skeleton" />
+            <div className="skeleton" />
+          </div>
+        )}
         {step === 'email' && (
           <>
             <p className="text-[var(--color-text-secondary)] mb-6">Enter the email associated with your spot.</p>
@@ -339,24 +362,8 @@ export function ShareButtons({
 }) {
   const url = useMemo(() => (typeof window === 'undefined' ? '' : `${window.location.origin}/spot/${spot.spotNumber}`), [spot.spotNumber]);
   const text = encodeURIComponent(`I just claimed my permanent spot on the Internet. Spot #${spot.spotNumber}. Find yours.`);
-  const [copied, setCopied] = useState(false);
-  const copyAndShare = async () => {
-    await navigator.clipboard.writeText(url);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1600);
-    shareSpot(spot);
-  };
   return (
     <div className="share-panel" role="group" aria-label="Share your permanent spot">
-      <button
-        type="button"
-        className={`share-btn share-copy${copied ? ' is-copied' : ''}`}
-        onClick={copyAndShare}
-        aria-live="polite"
-      >
-        <span>{copied ? 'COPIED!' : 'COPY LINK & SHARE'}</span>
-        <span aria-hidden="true">→</span>
-      </button>
       <p className="share-quick-label">Share to</p>
       <div className="share-icons">
         <a className="share-icon-btn share-x" href={`https://twitter.com/intent/tweet?text=${text}&url=${encodeURIComponent(url)}`} aria-label="Share on X">𝕏</a>

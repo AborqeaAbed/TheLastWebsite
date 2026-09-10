@@ -32,6 +32,12 @@ public class AuthController {
         return ResponseEntity.ok(Map.of("status", "sent"));
     }
 
+    @PostMapping("/resend-claim-code")
+    public ResponseEntity<Map<String, String>> resendClaimCode(@Valid @RequestBody MagicLinkRequestDto request) {
+        authService.resendClaimCode(request.getEmail());
+        return ResponseEntity.ok(Map.of("status", "sent"));
+    }
+
     @PostMapping("/verify-code")
     public ResponseEntity<Map<String, Object>> verifyCode(@Valid @RequestBody VerifyCodeRequest request,
                                                           HttpServletResponse response) {

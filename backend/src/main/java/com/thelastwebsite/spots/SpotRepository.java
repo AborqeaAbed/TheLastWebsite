@@ -29,6 +29,8 @@ public interface SpotRepository extends JpaRepository<Spot, UUID> {
 
     List<Spot> findByUserId(UUID userId);
 
+    Optional<Spot> findFirstByUserIdAndStatusOrderByUpdatedAtDesc(UUID userId, String status);
+
     @Query("SELECT s FROM Spot s WHERE s.x >= :minX AND s.x <= :maxX AND s.y >= :minY AND s.y <= :maxY")
     List<Spot> findSpotsInViewport(@Param("minX") Double minX,
                                    @Param("maxX") Double maxX,
@@ -89,8 +91,9 @@ public interface SpotRepository extends JpaRepository<Spot, UUID> {
     @Query("""
             UPDATE Spot s
             SET s.status = 'AVAILABLE', s.reservedUntil = null, s.user = null, s.name = null, s.message = null, s.updatedAt = :now
-            WHERE (s.status = 'RESERVED' AND s.reservedUntil < :now)
-               OR (s.status = 'PENDING_VERIFICATION' AND (s.reservedUntil IS NULL OR s.reservedUntil < :now) AND s.claimedAt IS NULL)
+            WHERE ((s.status = 'RESERVED' AND s.reservedUntil < :now)
+               OR (s.status = 'PENDING_VERIFICATION' AND s.reservedUntil IS NOT NULL AND s.reservedUntil < :now AND s.claimedAt IS NULL))
+              AND NOT EXISTS (SELECT 1 FROM Payment p WHERE p.spot = s AND p.status = 'SUCCEEDED')
             """)
     int releaseExpiredReservations(@Param("now") LocalDateTime now);
 }

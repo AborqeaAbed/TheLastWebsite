@@ -1,5 +1,7 @@
 package com.thelastwebsite.payments;
 
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.stripe.exception.SignatureVerificationException;
 import com.stripe.exception.StripeException;
 import com.stripe.model.Event;
@@ -20,6 +22,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
@@ -86,9 +90,10 @@ public class PaymentService {
 
         com.stripe.Stripe.apiKey = stripeSecretKey;
         try {
+            String encodedEmail = URLEncoder.encode(user.getEmail(), StandardCharsets.UTF_8);
             SessionCreateParams params = SessionCreateParams.builder()
                     .setMode(SessionCreateParams.Mode.PAYMENT)
-                    .setSuccessUrl(successUrl + "?session_id={CHECKOUT_SESSION_ID}")
+                    .setSuccessUrl(successUrl + "?email=" + encodedEmail + "&spot=" + spotNumber + "&session_id={CHECKOUT_SESSION_ID}")
                     .setCancelUrl(cancelUrl)
                     .putMetadata("spotNumber", String.valueOf(spotNumber))
                     .putMetadata("userId", user.getId().toString())
@@ -104,6 +109,8 @@ public class PaymentService {
                             .build())
                     .build();
             Session session = Session.create(params);
+            spot.setReservedUntil(LocalDateTime.now().plusSeconds(Constants.CHECKOUT_HOLD_TIMEOUT_SECONDS));
+            spotRepository.save(spot);
             persistPendingPayment(session.getId(), user, spot);
             return new CheckoutResult(session.getId(), session.getUrl(), false, provider);
         } catch (StripeException ex) {
@@ -125,7 +132,7 @@ public class PaymentService {
         if (!"checkout.session.completed".equals(event.getType())) {
             return;
         }
-        Session session = (Session) event.getDataObjectDeserializer().getObject().orElse(null);
+        Session session = resolveSession(event);
         if (session == null) {
             return;
         }
@@ -139,6 +146,34 @@ public class PaymentService {
         }
         User user = spot.getUser();
         applySuccessfulPayment(session.getId(), user, spot, currentPriceCents());
+    }
+
+    /**
+     * The embedded object in a webhook event is serialized using the Stripe account's current
+     * API version, which can be newer than the version this SDK is pinned to — in that case
+     * {@code getObject()} silently returns empty instead of throwing. Fall back to fetching the
+     * session fresh by id, which Stripe returns shaped for the SDK's own pinned API version.
+     */
+    private Session resolveSession(Event event) {
+        Session session = (Session) event.getDataObjectDeserializer().getObject().orElse(null);
+        if (session != null) {
+            return session;
+        }
+        String rawJson = event.getDataObjectDeserializer().getRawJson();
+        if (rawJson == null) {
+            return null;
+        }
+        JsonObject raw = JsonParser.parseString(rawJson).getAsJsonObject();
+        if (!raw.has("id")) {
+            return null;
+        }
+        String sessionId = raw.get("id").getAsString();
+        try {
+            com.stripe.Stripe.apiKey = stripeSecretKey;
+            return Session.retrieve(sessionId);
+        } catch (StripeException ex) {
+            return null;
+        }
     }
 
     @Transactional

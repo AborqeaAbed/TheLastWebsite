@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import { ShareButtons } from '../../components/Overlays';
 import { api } from '../../services/api';
 
@@ -8,9 +8,41 @@ export default function VerifyPage() {
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const [step, setStep] = useState<'email' | 'code' | 'claimed'>('email');
+  const [pendingSpotNumber, setPendingSpotNumber] = useState<number | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const emailParam = params.get('email');
+    const spotParam = params.get('spot');
+    if (spotParam) {
+      const parsed = parseInt(spotParam, 10);
+      if (!isNaN(parsed)) setPendingSpotNumber(parsed);
+    }
+    if (emailParam) {
+      setEmail(emailParam);
+      setStep('code');
+    }
+  }, []);
   const [spot, setSpot] = useState<{ spotNumber: number; name?: string; message?: string } | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [confirmingClose, setConfirmingClose] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [resendStatus, setResendStatus] = useState('');
+
+  const resendCode = async () => {
+    setResending(true);
+    setResendStatus('');
+    setError('');
+    try {
+      await api.resendClaimCode(email);
+      setResendStatus('A new code is on its way.');
+    } catch (err) {
+      setResendStatus(err instanceof Error ? err.message : 'Could not resend code.');
+    } finally {
+      setResending(false);
+    }
+  };
 
   const submitCode = async (e: FormEvent) => {
     e.preventDefault();
@@ -32,8 +64,20 @@ export default function VerifyPage() {
   };
 
   return (
+    <>
     <main className="min-h-screen grid place-items-center px-6">
-      <section className="modal-card text-center max-w-md w-full">
+      <section className="modal-card text-center max-w-md w-full relative">
+        {step === 'code' && (
+          <button
+            type="button"
+            className="absolute top-4 right-4 text-[var(--color-text-secondary)] hover:text-[var(--color-text)] transition-colors text-xl leading-none"
+            onClick={() => setConfirmingClose(true)}
+            aria-label="Close"
+            title="Close (or press Esc)"
+          >
+            ✕
+          </button>
+        )}
 
         {step === 'email' && (
           <>
@@ -64,7 +108,7 @@ export default function VerifyPage() {
         {step === 'code' && (
           <>
             <p className="tracking-[0.2em] text-sm text-[var(--color-text-secondary)]">CHECK YOUR INBOX</p>
-            <h1 className="mt-4">Enter your code</h1>
+            <h1 className="mt-4">{pendingSpotNumber ? `Claim Spot #${pendingSpotNumber.toLocaleString()}` : 'Verify your spot'}</h1>
             <p className="mt-3 text-[var(--color-text-secondary)]">
               Enter the 6-digit code sent to <strong>{email}</strong>.
             </p>
@@ -83,6 +127,13 @@ export default function VerifyPage() {
                   autoFocus
                 />
               </label>
+              <p className="text-sm text-[var(--color-text-secondary)] text-center">
+                Didn&apos;t get a code?{' '}
+                <button type="button" className="resend-link" onClick={resendCode} disabled={resending}>
+                  {resending ? 'Sending...' : 'Resend'}
+                </button>
+              </p>
+              {resendStatus ? <p className="text-sm text-[var(--color-text-secondary)] -mt-2" role="status">{resendStatus}</p> : null}
               {error ? <p className="error-text" role="alert">⚠ {error}</p> : null}
               <button className="btn-primary" type="submit" disabled={loading}>
                 {loading ? 'VERIFYING...' : 'VERIFY & CLAIM SPOT'}
@@ -98,20 +149,55 @@ export default function VerifyPage() {
           </>
         )}
 
-        {step === 'claimed' && spot && (
-          <>
-            <p className="tracking-[0.2em] text-sm text-[var(--color-text-secondary)]">SPOT CLAIMED</p>
-            <h1 className="mt-4">This place is yours.</h1>
-            <p className="spot-number text-2xl mt-6">#{spot.spotNumber.toLocaleString()}</p>
-            <p className="text-xl mt-4">"{spot.message}"</p>
-            <p className="text-[var(--color-text-secondary)]">— {spot.name}</p>
-            <div className="mt-8 flex justify-center">
-              <ShareButtons spot={{ ...spot, x: 0, y: 0, status: 'CLAIMED' }} />
-            </div>
-          </>
-        )}
-
       </section>
     </main>
+
+    {confirmingClose && (
+      <div className="confirm-dialog-backdrop" onClick={() => setConfirmingClose(false)}>
+        <div className="confirm-dialog" onClick={(e) => e.stopPropagation()}>
+          <p className="confirm-dialog-title">Close without verifying?</p>
+          <p className="confirm-dialog-message">Your payment is saved — you can finish claiming later using the code emailed to you. Closing now won&apos;t lose your spot, but it won&apos;t be claimed yet.</p>
+          <div className="confirm-dialog-actions">
+            <button className="btn-secondary btn-sm" onClick={() => setConfirmingClose(false)}>KEEP VERIFYING</button>
+            <button className="btn-primary btn-sm" onClick={() => { window.location.href = '/'; }}>CLOSE ANYWAY</button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {step === 'claimed' && spot && (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center px-4"
+        style={{ background: 'rgba(0,0,0,0.75)' }}
+        onClick={(e) => { if (e.target === e.currentTarget) window.location.href = '/'; }}
+      >
+        <section className="modal-card text-center max-w-md w-full relative">
+          <button
+            className="absolute top-4 right-4 text-[var(--color-text-secondary)] hover:text-[var(--color-text)] transition-colors text-xl leading-none"
+            onClick={() => window.location.href = '/'}
+            aria-label="Close"
+          >
+            ✕
+          </button>
+          <p className="tracking-[0.2em] text-sm text-[var(--color-text-secondary)]">SPOT CLAIMED</p>
+          <h1 className="mt-4">This place is yours.</h1>
+          <p className="spot-number text-2xl mt-6">#{spot.spotNumber.toLocaleString()}</p>
+          {spot.message && <p className="text-xl mt-4">"{spot.message}"</p>}
+          {spot.name && <p className="text-[var(--color-text-secondary)]">— {spot.name}</p>}
+          <div className="mt-8 flex justify-center">
+            <ShareButtons spot={{ ...spot, x: 0, y: 0, status: 'CLAIMED' }} />
+          </div>
+          <div className="mt-4 flex flex-col gap-3">
+            <a
+              className="btn-primary inline-grid place-items-center"
+              href={`/?spot=${spot.spotNumber}`}
+            >
+              VIEW MY SPOT
+            </a>
+          </div>
+        </section>
+      </div>
+    )}
+    </>
   );
 }

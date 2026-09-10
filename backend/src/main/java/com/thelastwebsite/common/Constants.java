@@ -4,6 +4,7 @@ public class Constants {
     public static final int TOTAL_SPOTS = 1_000_000;
     public static final int GRID_SIZE = 1000;
     public static final int RESERVATION_TIMEOUT_SECONDS = 300;
+    public static final int CHECKOUT_HOLD_TIMEOUT_SECONDS = 1800;
     public static final int MAGIC_LINK_EXPIRY_MINUTES = 60;
     public static final int OTP_EXPIRY_MINUTES = 15;
       public static final int MAX_MESSAGE_LENGTH = 200;
